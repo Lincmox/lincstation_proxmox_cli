@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lincmox"
+version = "1.0.0"
+description = "LincMox CLI to control LincStation LEDS"
+authors = [{name = "Florent GAUDIN", email = "florent.gaudin@lincmox.ovh"}]
+requires-python = ">=3.6"
+dependencies = []
+
+[project.scripts]
+lincmox = "lincmox_cli.cli.main:main"
+
+[project.urls]
+Homepage = "https://doc.lincmox.ovh"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages]
+find = {where = ["src"]}

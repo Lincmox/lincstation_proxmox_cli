@@ -1,0 +1,39 @@
+# Environnement virtuel
+.venv/
+
+# Fichiers/dossiers Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+
+# Dossiers de build
+build/
+dist/
+
+# Pybuild et debian
+.pybuild/
+debian/*.log
+debian/*~
+debian/files
+debian/files.*
+debian/*.debhelper
+debian/tmp/
+debian/lincmox-cli/
+debian/debhelper-build-stamp
+debian/lincmox-cli.substvars
+
+# Archives Debian
+../lincmox-cli_*.orig.tar.*
+../lincmox-cli_*.debian.tar.*
+../lincmox-cli_*.dsc
+../lincmox-cli_*.changes
+../lincmox-cli_*.build
+../lincmox-cli_*.buildinfo
+../lincmox-cli_*.deb
+# Autres
+*.swp
+*.swo
+
+script

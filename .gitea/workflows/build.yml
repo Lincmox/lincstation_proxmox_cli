@@ -1,0 +1,145 @@
+name: Build and Publish Debian Package
+run-name: Build triggered by ${{ gitea.actor }} on ${{ gitea.ref_name }}
+
+on:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - 'dev'
+
+jobs:
+  build-debian-package:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up git branch
+        run: |
+          git config --global user.email "ci@lincmox.gitea"
+          git config --global user.name "Lincmox CI"
+          
+          if [[ "${{ gitea.ref_type }}" == "tag" ]]; then
+            # For tags, find which branch contains this tag and checkout that branch
+            BRANCH=$(git branch -r --contains "${{ gitea.ref_name }}" | grep -oE "(main|dev|master)" | head -1 || echo "dev")
+            git checkout "$BRANCH"
+          else
+            # For branch pushes
+            git checkout "${{ gitea.ref_name }}"
+          fi
+
+      - name: Install tools
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+
+          apt-get update && \
+          apt-get install -y \
+            devscripts \
+            git-buildpackage \
+            debhelper \
+            dh-python \
+            git \
+            curl \
+            pbuilder \
+            nodejs \
+            python3-all \
+            python3-setuptools \
+            python3-build \
+            pybuild-plugin-pyproject && \
+          echo "MIRRORSITE=http://archive.ubuntu.com/ubuntu" > /etc/pbuilderrc
+
+      - name: Extract version
+        run: |
+          # Define ref name from Gitea context
+          REF_NAME="${{ gitea.ref_name }}"
+          
+          # Determine which branch we're on
+          if [[ "${{ gitea.ref_type }}" == "tag" ]]; then
+            # For tags, find which branch contains this tag
+            DEBIAN_BRANCH=$(git branch -r --contains "$REF_NAME" | grep -oE "(main|dev|master)" | head -1 || echo "dev")
+            VERSION=${REF_NAME#v}
+            # Convert hyphens to tildes for pre-release versions: v1.0.0-alpha1 -> 1.0.0~alpha1
+            VERSION=$(echo "$VERSION" | sed 's/-\(alpha\|beta\|rc\)/~\1/g')
+            echo "VERSION=$VERSION" >> $GITEA_ENV
+            
+            # Determine channel based on tag suffix
+            if [[ "$VERSION" == *"~alpha"* ]] || [[ "$VERSION" == *"~beta"* ]] || [[ "$VERSION" == *"~rc"* ]] || [[ "$VERSION" == *"~dev"* ]] || [[ "$VERSION" == *".dev"* ]]; then
+              echo "CHANNEL=testing" >> $GITEA_ENV
+            else
+              echo "CHANNEL=main" >> $GITEA_ENV
+            fi
+          else
+            # For branch pushes
+            DEBIAN_BRANCH="${{ gitea.ref_name }}"
+            BASE_VERSION=$(grep -oP 'version = "\K[^"]+' pyproject.toml)
+            COMMIT_SHORT=$(git rev-parse --short HEAD)
+            VERSION="${BASE_VERSION}~dev+${COMMIT_SHORT}"
+            echo "VERSION=$VERSION" >> $GITEA_ENV
+            echo "CHANNEL=testing" >> $GITEA_ENV
+          fi
+          
+          echo "DEBIAN_BRANCH=$DEBIAN_BRANCH" >> $GITEA_ENV
+          
+          # Debug output
+          echo "====== Version Extraction ======"
+          echo "REF_NAME: $REF_NAME"
+          echo "gitea.ref_type: ${{ gitea.ref_type }}"
+          echo "VERSION: $VERSION"
+          echo "CHANNEL: $(grep 'CHANNEL=' $GITEA_ENV | cut -d= -f2)"
+          echo "DEBIAN_BRANCH: $DEBIAN_BRANCH"
+          echo "================================"
+
+      - name: Generate changelog from commits
+        env:
+          DEBEMAIL: "ci@lincmox.gitea"
+          DEBFULLNAME: "Lincmox CI"
+        run: |
+          gbp dch \
+            --git-author \
+            --debian-branch="${DEBIAN_BRANCH}" \
+            --new-version="${VERSION}" \
+            --distribution=unstable
+
+      - name: Build Debian package
+        run: |
+          dpkg-buildpackage -us -uc
+
+      - name: Push Debian package to Gitea Debian Registry
+        run: |
+          for deb in ../*.deb; do
+            curl -H "Authorization: token ${{ secrets.ACCESS_TOKEN }}" \
+              --upload-file "$deb" \
+              "https://${{ vars.REGISTRY_DOMAIN }}/api/packages/${{ gitea.repository_owner }}/debian/pool/trixie/${CHANNEL}/upload"
+          done
+
+      - name: Clean up old dev packages (keep only current)
+        if: env.CHANNEL == 'testing'
+        run: |
+          # Only cleanup for dev builds (not pre-release tags)
+          if [[ "$VERSION" == *"~dev+"* ]]; then
+            REGISTRY="${{ vars.REGISTRY_DOMAIN }}"
+            OWNER="${{ gitea.repository_owner }}"
+            TOKEN="${{ secrets.ACCESS_TOKEN }}"
+            PKG_NAME="lincmox-cli"
+            
+            # Fetch all dev packages
+            ALL_DEV_PACKAGES=$(curl -H "Authorization: token $TOKEN" \
+              "https://$REGISTRY/api/v1/packages/$OWNER/debian/$PKG_NAME" \
+              | jq -r '.[] | select(.version | contains("~dev+")) | .version' | sort)
+            
+            # Delete all dev packages except the current one
+            echo "$ALL_DEV_PACKAGES" | while read VERSION_DEL; do
+              if [ "$VERSION_DEL" != "$VERSION" ]; then
+                # URL encode the version (+ becomes %2B)
+                VERSION_ENCODED=$(echo "$VERSION_DEL" | sed 's/+/%2B/g')
+                echo "Deleting old dev package: $PKG_NAME/$VERSION_DEL"
+                curl -X 'DELETE' -H "Authorization: token $TOKEN" -H 'accept: application/json' \
+                  "https://$REGISTRY/api/v1/packages/$OWNER/debian/$PKG_NAME/$VERSION_ENCODED" || true
+              fi
+            done
+            echo "Cleanup complete: kept only $VERSION"
+          fi
