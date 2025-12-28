@@ -2,7 +2,7 @@
 import os
 
 from lincmox_driver.i2c import I2C, I2CBackendMock
-from lincmox_driver.lincstation import LincStationSimulator, LincStationController as LincStation
+from lincmox_driver.lincstation import LincStationController as LincStation
 from .cli import CLI
 
 def main():
