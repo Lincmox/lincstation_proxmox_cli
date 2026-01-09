@@ -16,6 +16,7 @@ def main():
                     .with_nvme_cmd() \
                     .with_network_cmd() \
                     .with_strip_cmds() \
+                    .with_reset_cmd() \
                     .build();
                           
 if __name__ == "__main__":

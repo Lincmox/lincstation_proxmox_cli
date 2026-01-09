@@ -1,3 +1,15 @@
+lincmox-cli (1.0.0-4) unstable; urgency=medium
+
+  * Add toggle command.
+
+ -- Florent GAUDIN <florentgaudin24@gmail.com>  Fri, 09 Dec 2026 21:14:00 +0000
+
+lincmox-cli (1.0.0-3) unstable; urgency=medium
+
+  * Add reset command.
+
+ -- Florent GAUDIN <florentgaudin24@gmail.com>  Sun, 28 Dec 2025 12:00:00 +0000
+
 lincmox-cli (1.0.0-2) unstable; urgency=medium
 
   * Remove simulator.

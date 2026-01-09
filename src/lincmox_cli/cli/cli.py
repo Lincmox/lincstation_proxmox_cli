@@ -22,16 +22,28 @@ class CLI:
         print(self.lincstation)
 
     def _cmd_power(self, args):
-        self.lincstation.set_power_led(args.action, args.color)
+        if args.action in ["on", "off"]:
+            self.lincstation.set_power_led(args.action, args.color)
+        elif args.action == "toggle":
+            self.lincstation.toggle_power_led(args.choice)
 
     def _cmd_sata(self, args):
-        self.lincstation.set_sata_led(args.num, args.action, args.color)
+        if args.action in ["on", "off"]:
+            self.lincstation.set_sata_led(args.num, args.action, args.color)
+        elif args.action == "toggle":
+            self.lincstation.toggle_sata_led(args.num, args.choice)
 
     def _cmd_nvme(self, args):
-        self.lincstation.set_nvme_led(args.num, args.action, args.color)
+        if args.action in ["on", "off"]:
+            self.lincstation.set_nvme_led(args.num, args.action, args.color)
+        elif args.action == "toggle":
+            self.lincstation.toggle_nvme_led(args.num, args.choice)
 
     def _cmd_network(self, args):
-        self.lincstation.set_network_led(args.action, args.color)
+        if args.action in ["on", "off"]:
+            self.lincstation.set_network_led(args.action, args.color)
+        elif args.action == "toggle":
+            self.lincstation.toggle_network_led(args.choice)
 
     def _cmd_strip_animation(self, args):
         self.lincstation.set_strip_animation(args.mode)
@@ -47,6 +59,14 @@ class CLI:
 
     def _cmd_strip_second_loop_color(self, args):
         self.lincstation.set_strip_second_loop_color(args.r, args.g, args.b)
+
+    def _cmd_reset(self, args):
+        if args.mode == "full":
+            self.lincstation.reset()
+        elif args.mode == "leds":
+            self.lincstation.reset_leds()
+        elif args.mode == "strip":
+            self.lincstation.reset_strip()
 
     def _with_parser(self):
         self.parser = argparse.ArgumentParser(
@@ -73,32 +93,72 @@ class CLI:
 
     def with_power_cmd(self):
         p = self.sub.add_parser("power", help="Power LED control")
-        p.add_argument("action", choices=["on", "off"], help="Action")
-        p.add_argument("color", choices=["white", "red", "orange"], help="Color to set")
-        p.set_defaults(func=self._cmd_power)
+        power_sub = p.add_subparsers(dest="power_action", required=True)
+        
+        # Subcommands for 'on' and 'off' (require color)
+        for action in ["on", "off"]:
+            sp = power_sub.add_parser(action, help=f"Turn power LED {action}")
+            sp.add_argument("color", choices=["white", "red", "orange"], help="Color to set")
+            sp.set_defaults(func=self._cmd_power, action=action)
+        
+        # Subcommand for 'toggle' (requires choice 1 or 2)
+        sp = power_sub.add_parser("toggle", help="Toggle power LED")
+        sp.add_argument("choice", choices=["on", "off"], help="Choice (on or off)")
+        sp.set_defaults(func=self._cmd_power, action="toggle")
+        
         return self
 
     def with_sata_cmd(self):
         p = self.sub.add_parser("sata", help="SATA LED control")
         p.add_argument("num", type=int, choices=[1, 2], help="SATA number")
-        p.add_argument("action", choices=["on", "off"], help="Action")
-        p.add_argument("color", choices=["white", "red", "orange"], help="Color to set")
-        p.set_defaults(func=self._cmd_sata)
+        sata_sub = p.add_subparsers(dest="sata_action", required=True)
+        
+        # Subcommands for 'on' and 'off' (require color)
+        for action in ["on", "off"]:
+            sp = sata_sub.add_parser(action, help=f"Turn SATA LED {action}")
+            sp.add_argument("color", choices=["white", "red", "orange"], help="Color to set")
+            sp.set_defaults(func=self._cmd_sata, action=action)
+        
+        # Subcommand for 'toggle' (requires choice on or off)
+        sp = sata_sub.add_parser("toggle", help="Toggle SATA LED")
+        sp.add_argument("choice", choices=["on", "off"], help="Choice (on or off)")
+        sp.set_defaults(func=self._cmd_sata, action="toggle")
+        
         return self
 
     def with_nvme_cmd(self):
         p = self.sub.add_parser("nvme", help="NVMe LED control")
         p.add_argument("num", type=int, choices=[1,2,3,4], help="NVMe number")
-        p.add_argument("action", choices=["on", "off"], help="Action")
-        p.add_argument("color", choices=["white", "red", "orange"], help="Color to set")
-        p.set_defaults(func=self._cmd_nvme)
+        nvme_sub = p.add_subparsers(dest="nvme_action", required=True)
+        
+        # Subcommands for 'on' and 'off' (require color)
+        for action in ["on", "off"]:
+            sp = nvme_sub.add_parser(action, help=f"Turn NVMe LED {action}")
+            sp.add_argument("color", choices=["white", "red", "orange"], help="Color to set")
+            sp.set_defaults(func=self._cmd_nvme, action=action)
+        
+        # Subcommand for 'toggle' (requires choice on or off)
+        sp = nvme_sub.add_parser("toggle", help="Toggle NVMe LED")
+        sp.add_argument("choice", choices=["on", "off"], help="Choice (on or off)")
+        sp.set_defaults(func=self._cmd_nvme, action="toggle")
+        
         return self
 
     def with_network_cmd(self):
         p = self.sub.add_parser("network", help="Network LED control")
-        p.add_argument("action", choices=["on", "off"], help="Action")
-        p.add_argument("color", choices=["white", "red", "orange"], help="Color to set")
-        p.set_defaults(func=self._cmd_network)
+        network_sub = p.add_subparsers(dest="network_action", required=True)
+        
+        # Subcommands for 'on' and 'off' (require color)
+        for action in ["on", "off"]:
+            sp = network_sub.add_parser(action, help=f"Turn Network LED {action}")
+            sp.add_argument("color", choices=["white", "red", "orange"], help="Color to set")
+            sp.set_defaults(func=self._cmd_network, action=action)
+        
+        # Subcommand for 'toggle' (requires choice on or off)
+        sp = network_sub.add_parser("toggle", help="Toggle Network LED")
+        sp.add_argument("choice", choices=["on", "off"], help="Choice (on or off)")
+        sp.set_defaults(func=self._cmd_network, action="toggle")
+        
         return self
 
     def _with_strip_animation_cmd(self):
@@ -144,6 +204,12 @@ class CLI:
                 ._with_strip_color_cmd()
                 ._with_strip_first_loop_color_cmd()
                 ._with_strip_second_loop_color_cmd())
+
+    def with_reset_cmd(self):
+        p = self.sub.add_parser("reset", help="Reset all LEDs and strip")
+        p.add_argument("mode", choices=["full", "leds", "strip"], help="Reset mode")
+        p.set_defaults(func=self._cmd_reset)
+        return self
 
     def build(self):
         args = self.parser.parse_args()
